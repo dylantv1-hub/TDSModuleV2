@@ -1,60 +1,56 @@
-#include "KeyestudioTDS.h"
-
+#include <KeyestudioTDS.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
-#define TdsSensorPin 0
-#define oneWireBus 2
-
 #include <LiquidCrystal_I2C.h>
-LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-KeyestudioTDS tds;
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
+KeyestudioTDS tds;                  
+OneWire onewire(2);
+DallasTemperature tempSensor(&onewire);
+
 float temperatureC = 25;
-
-OneWire oneWire(oneWireBus);
-
-DallasTemperature sensors(&oneWire);
+float tdsVal = 0;
+unsigned long printTimer = 0;
 
 void setup()
 {
-    Serial.begin(115200);
-    tds.setPin(TdsSensorPin);
-    tds.setAref(3.3);
-    tds.setAdcRange(4096);
-    tds.begin();
+    Serial.begin(115200);   //set to 115200 if using esp32, 9600 if using arduino
+    
+    tds.setPin(0);          
+    tds.begin();            //initialize tds sensor
 
-    sensors.begin();
+    tempSensor.begin();        //initialize temperature sensor
 
-    lcd.init(); // initialize the lcd
+    lcd.init();             //initialize the lcd
 	lcd.backlight();
 }
 
 void loop()
 {
-    sensors.requestTemperatures(); 
-    temperatureC = sensors.getTempCByIndex(0);
-    Serial.print("Temp: ");
-    Serial.print(temperatureC);
-    Serial.println("ºC");
-   
-    lcd.setCursor(0,0);
-    lcd.print("Temp: ");
-    lcd.print(temperatureC);
-    lcd.print((char)223);
-    lcd.print("C");
+    tempSensor.update();
+    temperatureC = tempSensor.getTemperature();
 
     tds.setTemperature(temperatureC);
     tds.update();
-    Serial.print("TDS Value:");
-    Serial.print(tds.getTdsValue(), 0);
-    Serial.println("ppm");
-    Serial.println();
+    tdsVal = tds.getTdsValue();
 
-    lcd.setCursor(0,1);
-    lcd.print("TDS Val: ");
-    lcd.print(tds.getTdsValue(), 0);
-    lcd.print("ppm   ");
-
-    delay(1);
+    if (millis() - printTimer >= 1000U)
+    {
+        printTimer = millis();
+        Serial.print("Temp:");
+        Serial.print(temperatureC);
+        Serial.print(",");
+        Serial.print("TDS Value:");
+        Serial.println(tdsVal, 0);
+    
+        lcd.setCursor(0,0);
+        lcd.print("Temp: ");
+        lcd.print(temperatureC);
+        lcd.print((char)223);
+        lcd.print("C");
+        lcd.setCursor(0,1);
+        lcd.print("TDS: ");
+        lcd.print(tdsVal, 0);
+        lcd.print("ppm   ");
+    }
 }
